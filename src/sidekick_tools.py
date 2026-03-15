@@ -24,7 +24,6 @@ load_dotenv(override=True)
 pushover_token = os.getenv("PUSHOVER_TOKEN")
 pushover_user = os.getenv("PUSHOVER_USER")
 pushover_url = "https://api.pushover.net/1/messages.json"
-serper = GoogleSerperAPIWrapper()
 
 
 async def playwright_tools():
@@ -60,12 +59,17 @@ async def other_tools():
     # File tools. Used to read/write/list files under the sandbox/ directory.
     file_tools = get_file_tools()
 
-    # Search tool. Used to get the results of an online web search.
-    tool_search = StructuredTool.from_function(
-        func=serper.run,
-        name="search",
-        description="Use this tool when you want to get the results of an online web search",
-    )
+    # Search tool (only when SERPER_API_KEY is set). Used to get the results of an online web search.
+    search_tools = []
+    if os.getenv("SERPER_API_KEY"):
+        serper = GoogleSerperAPIWrapper()
+        search_tools = [
+            StructuredTool.from_function(
+                func=serper.run,
+                name="search",
+                description="Use this tool when you want to get the results of an online web search",
+            )
+        ]
 
     # Wikipedia tool. Used to look up encyclopedic facts (definitions, summaries).
     wikipedia = WikipediaAPIWrapper()
@@ -75,5 +79,5 @@ async def other_tools():
     # so it might cause some security issues if it is not properly configured and executed locally.
     python_repl = PythonREPLTool()
 
-    return file_tools + [push_tool, tool_search, python_repl, wiki_tool]
+    return file_tools + [push_tool] + search_tools + [python_repl, wiki_tool]
 

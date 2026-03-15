@@ -1,4 +1,5 @@
 """Unit tests for sidekick_tools.py (push, get_file_tools, other_tools)."""
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -50,12 +51,16 @@ class TestOtherTools:
         tools = await other_tools()
         names = [t.name for t in tools]
         assert "send_push_notification" in names
-        assert "search" in names
+        if os.getenv("SERPER_API_KEY"):
+            assert "search" in names
 
     @pytest.mark.asyncio
     async def test_contains_file_tools(self):
         tools = await other_tools()
         names = [t.name for t in tools]
         # File toolkit adds multiple tools (list_dir, read_file, write_file, etc.)
-        file_tool_names = [n for n in names if n not in ("send_push_notification", "search", "python_repl") and "wikipedia" not in n.lower()]
+        exclude = {"send_push_notification", "python_repl"}
+        if "search" in names:
+            exclude.add("search")
+        file_tool_names = [n for n in names if n not in exclude and "wikipedia" not in n.lower()]
         assert len(file_tool_names) >= 1
