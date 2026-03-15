@@ -1,4 +1,13 @@
-from typing import Annotated
+"""
+Sidekick agent: LangGraph workflow (worker + tools + evaluator + memory + retry).
+
+Code flow / steps:
+  1. setup(): Load tools (playwright + other_tools), bind worker LLM to tools, create evaluator LLM with structured output, build_graph() and compile with MemorySaver.
+  2. build_graph(): Define State, add nodes (worker, tools, evaluator), add conditional edges (worker_router, route_based_on_evaluation), START→worker, compile with checkpointer.
+  3. run_superstep(message, success_criteria, history): Build initial state, graph.ainvoke(state, thread_id); return history + [user, reply, evaluator_feedback] for UI.
+  4. Inside the graph: worker runs (optionally calls tools); worker_router sends to tools or evaluator; tools→worker loop until no tool_calls; evaluator runs; route_based_on_evaluation sends to END or back to worker (retry).
+"""
+from typing import Annotated, List, Any, Optional, Dict
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -7,7 +16,6 @@ from langgraph.prebuilt import ToolNode
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from typing import List, Any, Optional, Dict
 from pydantic import BaseModel, Field
 from sidekick_tools import playwright_tools, other_tools
 import uuid
@@ -17,7 +25,9 @@ from datetime import datetime
 load_dotenv(override=True)
 
 
+# --- Graph state and evaluator output schema ---
 class State(TypedDict):
+    """Shared state for the graph: messages (with add_messages merge), success_criteria, evaluator feedback and flags."""
     messages: Annotated[List[Any], add_messages]
     success_criteria: str
     feedback_on_work: Optional[str]
@@ -26,6 +36,7 @@ class State(TypedDict):
 
 
 class EvaluatorOutput(BaseModel):
+    """Structured output from the evaluator LLM: feedback text and two booleans for routing."""
     feedback: str = Field(description="Feedback on the assistant's response")
     success_criteria_met: bool = Field(description="Whether the success criteria have been met")
     user_input_needed: bool = Field(
@@ -34,6 +45,8 @@ class EvaluatorOutput(BaseModel):
 
 
 class Sidekick:
+    """Holds tools, worker LLM, evaluator LLM, compiled graph, and memory; runs one superstep per user message."""
+
     def __init__(self):
         self.worker_llm_with_tools = None
         self.evaluator_llm_with_output = None
@@ -46,6 +59,7 @@ class Sidekick:
         self.playwright = None
 
     async def setup(self):
+        """Load tools (playwright + other), bind worker LLM to tools, create evaluator LLM, build and compile graph."""
         self.tools, self.browser, self.playwright = await playwright_tools()
         self.tools += await other_tools()
         worker_llm = ChatOpenAI(model="gpt-4o-mini")
@@ -54,7 +68,9 @@ class Sidekick:
         self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
         await self.build_graph()
 
+    # --- Graph nodes ---
     def worker(self, state: State) -> Dict[str, Any]:
+        """Build system prompt (success_criteria + optional feedback_on_work), invoke worker LLM with messages; return new messages."""
         system_message = f"""You are a helpful assistant that can use tools to complete tasks.
     You keep working on a task until either you have a question or clarification for the user, or the success criteria is met.
     You have many tools to help you, including tools to browse the internet, navigating and retrieving web pages.
@@ -78,8 +94,7 @@ class Sidekick:
     {state["feedback_on_work"]}
     With this feedback, please continue the assignment, ensuring that you meet the success criteria or have a question for the user."""
 
-        # Add in the system message
-
+        # Ensure system message is in conversation (inject or update)
         found_system_message = False
         messages = state["messages"]
         for message in messages:
@@ -90,23 +105,25 @@ class Sidekick:
         if not found_system_message:
             messages = [SystemMessage(content=system_message)] + messages
 
-        # Invoke the LLM with tools
         response = self.worker_llm_with_tools.invoke(messages)
-
-        # Return updated state
         return {
             "messages": [response],
         }
 
+    # --- Worker router ---
+    # Its needed to determine the next node to run.
+    # If the last message has tool_calls, then we need to run the tools node.
+    # If the last message does not have tool_calls, then we need to run the evaluator node.
+    # This is needed to ensure that the worker node is only run if it has not already completed the task.
     def worker_router(self, state: State) -> str:
+        """After worker: if last message has tool_calls → 'tools', else → 'evaluator'."""
         last_message = state["messages"][-1]
-
         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
             return "tools"
-        else:
-            return "evaluator"
+        return "evaluator"
 
     def format_conversation(self, messages: List[Any]) -> str:
+        """Turn message list into a plain-text conversation string for the evaluator prompt."""
         conversation = "Conversation history:\n\n"
         for message in messages:
             if isinstance(message, HumanMessage):
@@ -116,7 +133,9 @@ class Sidekick:
                 conversation += f"Assistant: {text}\n"
         return conversation
 
+    # --- Evaluator node ---
     def evaluator(self, state: State) -> State:
+        """Run evaluator LLM on last response vs success_criteria; return state update with feedback, success_criteria_met, user_input_needed."""
         last_response = state["messages"][-1].content
 
         system_message = """You are an evaluator that determines if a task has been completed successfully by an Assistant.
@@ -164,14 +183,20 @@ class Sidekick:
         }
         return new_state
 
+    # --- Route based on evaluation ---
+    # Its needed to determine the next node to run.
+    # If the success criteria are met or the user input is needed, then we need to end the run.
+    # If the success criteria are not met and the user input is not needed, then we need to run the worker node again.
+    # This is needed to ensure that the run is only ended if the success criteria are met or the user input is needed.
     def route_based_on_evaluation(self, state: State) -> str:
+        """After evaluator: if success_criteria_met or user_input_needed → END, else → worker (retry)."""
         if state["success_criteria_met"] or state["user_input_needed"]:
             return "END"
-        else:
-            return "worker"
+        return "worker"
 
+    # --- Graph build and run ---
     async def build_graph(self):
-        # Set up Graph Builder with State
+        """Create StateGraph with worker, tools, evaluator; wire conditional edges and compile with MemorySaver."""
         graph_builder = StateGraph(State)
 
         # Add nodes
@@ -193,6 +218,7 @@ class Sidekick:
         self.graph = graph_builder.compile(checkpointer=self.memory)
 
     async def run_superstep(self, message, success_criteria, history):
+        """Run graph.ainvoke with initial state; return chat history + [user, reply, evaluator_feedback] for UI."""
         config = {"configurable": {"thread_id": self.sidekick_id}}
 
         state = {
@@ -202,6 +228,8 @@ class Sidekick:
             "success_criteria_met": False,
             "user_input_needed": False,
         }
+        
+        # Invoke the graph with the initial state
         result = await self.graph.ainvoke(state, config=config)
         user = {"role": "user", "content": message}
         reply = {"role": "assistant", "content": result["messages"][-2].content}
@@ -209,6 +237,7 @@ class Sidekick:
         return history + [user, reply, feedback]
 
     def cleanup(self):
+        """Close browser and playwright (called when Sidekick is removed from UI state)."""
         if self.browser:
             try:
                 loop = asyncio.get_running_loop()
@@ -216,7 +245,7 @@ class Sidekick:
                 if self.playwright:
                     loop.create_task(self.playwright.stop())
             except RuntimeError:
-                # If no loop is running, do a direct run
+                # No event loop (e.g. sync context): run cleanup directly
                 asyncio.run(self.browser.close())
                 if self.playwright:
                     asyncio.run(self.playwright.stop())
