@@ -65,9 +65,9 @@ async def other_tools():
     wikipedia = WikipediaAPIWrapper()
     wiki_tool = WikipediaQueryRun(api_wrapper=wikipedia)
 
-    # Python REPL commented to avoid any unintended execution because its not running in docker container
+    # Python REPL - comment to avoid any unintended execution because its not running in docker container
     # so it might cause some security issues if it is not properly configured and executed locally.
-    #python_repl = PythonREPLTool()
+    python_repl = PythonREPLTool()
 
-    return file_tools + [push_tool, tool_search, wiki_tool]
+    return file_tools + [push_tool, tool_search, python_repl, wiki_tool]
 
