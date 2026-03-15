@@ -49,19 +49,25 @@ def get_file_tools():
 
 async def other_tools():
     """Build and return non-browser tools: file, web search, Wikipedia, push. (Python REPL optional.)"""
+
+    # Push notification tool. Used to send a push notification via Pushover.
     push_tool = StructuredTool.from_function(
         func=push,
         name="send_push_notification",
         description="Use this tool when you want to send a push notification",
     )
+
+    # File tools. Used to read/write/list files under the sandbox/ directory.
     file_tools = get_file_tools()
 
+    # Search tool. Used to get the results of an online web search.
     tool_search = StructuredTool.from_function(
         func=serper.run,
         name="search",
         description="Use this tool when you want to get the results of an online web search",
     )
 
+    # Wikipedia tool. Used to look up encyclopedic facts (definitions, summaries).
     wikipedia = WikipediaAPIWrapper()
     wiki_tool = WikipediaQueryRun(api_wrapper=wikipedia)
 

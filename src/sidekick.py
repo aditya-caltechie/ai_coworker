@@ -35,6 +35,9 @@ class State(TypedDict):
     user_input_needed: bool
 
 
+# Evaluator output schema.
+# Its used to parse the output of the evaluator LLM.
+# It contains the feedback on the assistant's response, whether the success criteria have been met, and whether more input is needed from the user.
 class EvaluatorOutput(BaseModel):
     """Structured output from the evaluator LLM: feedback text and two booleans for routing."""
     feedback: str = Field(description="Feedback on the assistant's response")
@@ -44,6 +47,9 @@ class EvaluatorOutput(BaseModel):
     )
 
 
+# Sidekick class.
+# Its used to hold the tools, worker LLM, evaluator LLM, compiled graph, and memory.
+# It also runs one superstep per user message.
 class Sidekick:
     """Holds tools, worker LLM, evaluator LLM, compiled graph, and memory; runs one superstep per user message."""
 
@@ -68,7 +74,8 @@ class Sidekick:
         self.evaluator_llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
         await self.build_graph()
 
-    # --- Graph nodes ---
+    # Worker node.
+    # Its used to build the system prompt, invoke the worker LLM with messages, and return the new messages.
     def worker(self, state: State) -> Dict[str, Any]:
         """Build system prompt (success_criteria + optional feedback_on_work), invoke worker LLM with messages; return new messages."""
         system_message = f"""You are a helpful assistant that can use tools to complete tasks.
@@ -110,8 +117,8 @@ class Sidekick:
             "messages": [response],
         }
 
-    # --- Worker router ---
-    # Its needed to determine the next node to run.
+    # Worker router.
+    # Its used to determine the next node to run.
     # If the last message has tool_calls, then we need to run the tools node.
     # If the last message does not have tool_calls, then we need to run the evaluator node.
     # This is needed to ensure that the worker node is only run if it has not already completed the task.
@@ -133,7 +140,9 @@ class Sidekick:
                 conversation += f"Assistant: {text}\n"
         return conversation
 
-    # --- Evaluator node ---
+    # Evaluator node.
+    # Its used to evaluate the assistant's response based on the success criteria.
+    # It returns the feedback on the assistant's response, whether the success criteria have been met, and whether more input is needed from the user.
     def evaluator(self, state: State) -> State:
         """Run evaluator LLM on last response vs success_criteria; return state update with feedback, success_criteria_met, user_input_needed."""
         last_response = state["messages"][-1].content
@@ -194,7 +203,8 @@ class Sidekick:
             return "END"
         return "worker"
 
-    # --- Graph build and run ---
+    # Build the graph.
+    # Its used to create the StateGraph, add the nodes, add the edges, and compile the graph with the memory.
     async def build_graph(self):
         """Create StateGraph with worker, tools, evaluator; wire conditional edges and compile with MemorySaver."""
         graph_builder = StateGraph(State)
@@ -217,6 +227,8 @@ class Sidekick:
         # Compile the graph
         self.graph = graph_builder.compile(checkpointer=self.memory)
 
+    # Run the superstep. Its used to invoke the graph with the initial state.
+    # It returns the chat history + [user, reply, evaluator_feedback] for the UI.
     async def run_superstep(self, message, success_criteria, history):
         """Run graph.ainvoke with initial state; return chat history + [user, reply, evaluator_feedback] for UI."""
         config = {"configurable": {"thread_id": self.sidekick_id}}
@@ -228,7 +240,7 @@ class Sidekick:
             "success_criteria_met": False,
             "user_input_needed": False,
         }
-        
+
         # Invoke the graph with the initial state
         result = await self.graph.ainvoke(state, config=config)
         user = {"role": "user", "content": message}
