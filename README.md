@@ -117,4 +117,5 @@ uv run pytest tests/ -v
 | [docs/BASICS.md](docs/BASICS.md) | LangGraph basics, five steps to build a graph, tools/memory/loop. |
 | [docs/DEMO.md](docs/DEMO.md) | Demo 1–3: CNN headlines + push, math (pi×3), Indian restaurant + `dinner.md` + push; screenshots and LangSmith traces. |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | LangSmith tracing, tool usage in traces, how it helps. |
+| [docs/GUARDRAILS.md](docs/GUARDRAILS.md) | Where and how to add guardrails (input/output/tools/evaluator) with code samples. |
 | [AGENTS.md](AGENTS.md) | Contributor map: repo layout, key components, config, run commands, pitfalls. |
