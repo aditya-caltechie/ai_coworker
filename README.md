@@ -125,4 +125,4 @@ uv run pytest tests/ -v
 LangGraph is orchestration layer - which can we used for making both workflow and agentic solutions. However it makes more sense to use for agentic solution where we can give more autonomy to choose tools and loop actions based on feedback/evaluation/response along with guardrails.
 - **Workflows** : example traditional rag. Simpler. [Reference-1](https://github.com/aditya-caltechie/ai-langchain-intro/blob/main/docs/LangGraph.md) | 
 [Reference-2](https://github.com/aditya-caltechie/ai-langchain-intro/tree/main/src/rag)
-- **Full Agnetic solution** : example agentic-rag repo, ai-sidekick repo. 
+- **Full Agnetic solution** : example agentic-rag repo, ai-sidekick repo. LangGraph notebooks lab-2,3.
