@@ -1,5 +1,7 @@
 # ai-sidekick
 
+[![CI](https://github.com/aditya-caltechie/ai-sidekick/actions/workflows/ci.yml/badge.svg)](https://github.com/aditya-caltechie/ai-sidekick/actions)
+
 **Sidekick** is an AI-powered “personal co-worker” that takes your request and optional **success criteria**, then works autonomously until it meets those criteria or needs your input. It uses a **worker** LLM with tools (browser, search, files, push, Wikipedia, Python REPL), a separate **evaluator** LLM that checks the worker’s answers against your criteria, and a **retry loop** so the worker can improve when the evaluator says “not yet.” Conversation state is checkpointed per thread. The **Gradio** UI lets you send messages, set success criteria, and see the assistant’s reply plus evaluator feedback.
 
 ---
