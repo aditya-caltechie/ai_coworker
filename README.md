@@ -1,10 +1,10 @@
-# ai-sidekick
+# ai-coworker
 
-[![CI](https://github.com/aditya-caltechie/ai-sidekick/actions/workflows/ci.yml/badge.svg)](https://github.com/aditya-caltechie/ai-sidekick/actions)
+[![CI](https://github.com/aditya-caltechie/ai_coworker/actions/workflows/ci.yml/badge.svg)](https://github.com/aditya-caltechie/ai_coworker/actions)
 
-**Sidekick** is an AI-powered “personal co-worker” that takes your request and optional **success criteria**, then works autonomously until it meets those criteria (or needs your input). It pairs a **tool-using worker** model with a separate **evaluator** model that checks results against your criteria, enabling a retry loop that improves answers until they pass.
+**CoWorker** is an AI-powered “personal co-worker” that takes your request and optional **success criteria**, then works autonomously until it meets those criteria or needs your input. It uses a **worker** LLM with tools (**browser, search, files, push, Wikipedia, Python REPL**), a separate **evaluator** LLM that checks the worker’s answers against your criteria, and a **retry loop** so the worker can improve when the evaluator says “not yet.” Conversation state is checkpointed per thread. The **Gradio** UI lets you send messages, set success criteria, and see the assistant’s reply plus evaluator feedback.
 
-## Why Sidekick (vs. a chat box)
+## Why CoWorker (vs. a chat box)
 
 You provide a **task** and (optionally) **success criteria**. The worker can use real tools (browser, search, files, Python, notifications) in a loop. When the worker produces a final response, the evaluator checks it against your criteria and either:
 
@@ -51,7 +51,7 @@ flowchart TB
     subgraph UI
         Gradio[Gradio UI\nmessage + success criteria\nReset / Go]
     end
-    subgraph Sidekick
+    subgraph CoWorker
         Graph[LangGraph]
         Worker[worker node\nLLM + tools]
         Tools[tools node\nPlaywright, search, file, push, ...]
