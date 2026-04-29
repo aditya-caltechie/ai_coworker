@@ -2,7 +2,24 @@
 
 [![CI](https://github.com/aditya-caltechie/ai-sidekick/actions/workflows/ci.yml/badge.svg)](https://github.com/aditya-caltechie/ai-sidekick/actions)
 
-**Sidekick** is an AI-powered “personal co-worker” that takes your request and optional **success criteria**, then works autonomously until it meets those criteria or needs your input. It uses a **worker** LLM with tools (browser, search, files, push, Wikipedia, Python REPL), a separate **evaluator** LLM that checks the worker’s answers against your criteria, and a **retry loop** so the worker can improve when the evaluator says “not yet.” Conversation state is checkpointed per thread. The **Gradio** UI lets you send messages, set success criteria, and see the assistant’s reply plus evaluator feedback.
+**Sidekick** is an AI-powered “personal co-worker” that takes your request and optional **success criteria**, then works autonomously until it meets those criteria or needs your input. It uses a **worker** LLM with tools (**browser, search, files, push, Wikipedia, Python REPL**), a separate **evaluator** LLM that checks the worker’s answers against your criteria, and a **retry loop** so the worker can improve when the evaluator says “not yet.” Conversation state is checkpointed per thread. The **Gradio** UI lets you send messages, set success criteria, and see the assistant’s reply plus evaluator feedback.
+
+### Not just a chat box: a personal co-worker
+
+Sidekick is **active personal assistance**, not a passive “type a message, get a reply” chat. You give a **task** and (optionally) **success criteria**; the **worker** uses real tools (browser, search, files, code, push) in a loop; the **evaluator** checks whether the result actually meets your criteria. If not, the agent **retries** with the evaluator’s feedback until the bar is cleared or the system needs you to clarify. That is how it “works until the criteria are met” (or it explicitly needs your input).
+
+### What you can do: tools, where they come from, and example use cases
+
+| Tool(s) | Source in code | Role | Example use cases |
+|---------|----------------|------|-------------------|
+| **Playwright browser** | `playwright_tools()` | Open pages, click, fill forms, follow links, take screenshots, extract text. For tasks that need a **real website**, not just a search snippet. | “Check the latest headlines on CNN and summarize,” “Open this booking page and read the available slots,” “Scrape the menu from a restaurant site.” |
+| **Search (Serper)** | `other_tools()` → `search` (when `SERPER_API_KEY` is set) | Web search: current facts, news, “find X near Y,” product or price lookups. | “What’s the current price of X?”, “Recent news about Y,” “Find an Indian restaurant in Dublin, CA.” |
+| **Wikipedia** | `other_tools()` → `WikipediaQueryRun` | Encyclopedic facts: definitions, short summaries, background. | “What is photosynthesis?”, “When was the Eiffel Tower built?”, disambiguation before a deeper search. |
+| **Python REPL** | `other_tools()` → `PythonREPLTool` | Run **arbitrary Python**: math, data in memory, small scripts, `print()` for output. The worker must use `print()` to get visible tool output. | “What is π×3?”, “Sum this list…”, “Parse a string and show the result,” ad-hoc calculations or data checks. |
+| **File tools** | `get_file_tools()` in `other_tools()` | `read_file` / `write_file` / `list_dir` under **`sandbox/`** only. | “Write a markdown report to `dinner.md`,” “Save a script or notes,” “Read back the file I just created.” |
+| **Push notification** | `other_tools()` → `send_push_notification` | Send a real notification (e.g. **Pushover**) to your phone. | “Notify me with the restaurant name and phone when you’re done,” “Ping me the CNN headline list,” task-done alerts. |
+
+**Scope in one line:** If the job can be done with **browsing, searching, looking up facts, running Python, writing/reading files in `sandbox/`, or notifying you**, Sidekick can try to do it—**driven by your success criteria** and **checked by the evaluator** until the answer is good enough or you’re asked to step in.
 
 ---
 
@@ -13,16 +30,7 @@
 - **Loop**: Worker → tools (if tool calls) or → evaluator (if no tool calls). Tools → worker again. Evaluator → **END** (done or user input needed) or → worker (retry with feedback).
 - **State**: Messages, success criteria, evaluator feedback, and flags are stored in graph state and persisted with a checkpointer (MemorySaver) per conversation thread.
 
-**Tools used** (all in `src/sidekick_tools.py`; the worker decides when to use which):
-
-| Tool / capability | Purpose |
-|-------------------|--------|
-| **Playwright** | Browse pages, navigate, extract links/text (e.g. CNN, restaurant sites). |
-| **Search (Serper)** | Web search (e.g. “Indian restaurant Dublin CA”, “CNN headlines”). |
-| **File tools** | Read/write/list under `sandbox/` (e.g. write report to `dinner.md`). |
-| **Push** | Send push notifications (e.g. Pushover) with composed text. |
-| **Wikipedia** | Look up encyclopedic facts. |
-| **Python REPL** | Run Python code (e.g. math, data). |
+Configuration and tool wiring are in `src/sidekick_tools.py` and `src/sidekick.py`. For walkthroughs, see [docs/DEMO.md](docs/DEMO.md).
 
 ---
 
@@ -117,7 +125,7 @@ uv run pytest tests/ -v
 |-----|-------------|
 | [docs/HLD.md](docs/HLD.md) | High-level design: graph, state, tools, evaluator, retry, who decides what. |
 | [docs/BASICS.md](docs/BASICS.md) | LangGraph basics, five steps to build a graph, tools/memory/loop. |
-| [docs/DEMO.md](docs/DEMO.md) | Demo 1–3: CNN headlines + push, math (pi×3), Indian restaurant + `dinner.md` + push; screenshots and LangSmith traces. |
+| [docs/DEMO.md](docs/DEMO.md) | Demo 1–4: CNN + push, math (REPL), Python code generation, restaurant + `dinner.md` + push; screenshots and LangSmith traces. |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | LangSmith tracing, tool usage in traces, how it helps. |
 | [docs/GUARDRAILS.md](docs/GUARDRAILS.md) | Where and how to add guardrails (input/output/tools/evaluator) with code samples. |
 | [docs/EVALUATION.md](docs/EVALUATION.md) | How evaluation works (in-loop evaluator, offline eval), customization, and examples. |

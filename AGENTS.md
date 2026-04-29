@@ -20,11 +20,11 @@ ai-sidekick/
 ├── docs/
 │   ├── BASICS.md            # LangGraph basics, five steps, tools/memory/loop
 │   ├── HLD.md               # High-level design: graph, state, tools, evaluator, retry
-│   ├── DEMO.md              # Demo 1–3 walkthroughs (CNN headlines, math, restaurant + traces)
+│   ├── DEMO.md              # Demo 1–4 walkthroughs (CNN, math, Python code, restaurant + traces)
 │   ├── OBSERVABILITY.md     # LangSmith tracing, tool usage, how it helps
 │   └── demo/                # Screenshots for DEMO.md and OBSERVABILITY.md
 ├── sandbox/                  # File tools (read/write/list) are scoped here
-│   └── dinner.md            # Example output (e.g. Demo 3 report)
+│   └── dinner.md            # Example output (e.g. Demo 4 restaurant report)
 ├── src/                     # Application and agent code
 │   ├── app.py               # Gradio UI entrypoint; setup Sidekick, process_message, reset
 │   ├── sidekick.py          # Sidekick class, LangGraph (worker, tools, evaluator), State, EvaluatorOutput
