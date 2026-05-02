@@ -44,30 +44,6 @@ Open the printed local URL (typically `http://127.0.0.1:7860`).
 
 ---
 
-## How it works
-
-```mermaid
-flowchart TB
-    subgraph UI
-        Gradio[Gradio UI\nmessage + success criteria\nReset / Go]
-    end
-    subgraph CoWorker
-        Graph[LangGraph]
-        Worker[worker node\nLLM + tools]
-        Tools[tools node\nPlaywright, search, file, push, ...]
-        Eval[evaluator node\nstructured output]
-        Memory[MemorySaver\ncheckpointer]
-    end
-    Gradio -->|run_superstep| Graph
-    Graph --> Worker
-    Worker -->|tool_calls| Tools
-    Worker -->|no tool_calls| Eval
-    Tools --> Worker
-    Eval -->|success or user_input_needed| END
-    Eval -->|retry| Worker
-    Graph --> Memory
-```
-
 ### Control loop (conceptual)
 
 - **Worker node**: generates actions and may call tools.
